@@ -95,4 +95,65 @@ def needleman(seq1, seq2, affine=False):
 
 
 def smith(seq1, seq2, affine=False):
-    return seq1
+    m, n = len(seq1), len(seq2)
+
+    # Generate DP table and traceback path pointer matrix
+    score = numpy.zeros(dtype=numpy.int, shape=(m+1, n+1))
+    pointer = numpy.zeros(dtype=numpy.int, shape=(m+1, n+1))
+
+    # initial maximum score in DP table
+    max_score = 0
+
+    # Calculate DP table and mark pointers
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            score_diagonal = score[i-1][j-1] + similarity(seq1[i-1], seq2[j-1])
+            score_up = score[i][j-1] + Score.indel
+            score_left = score[i-1][j] + Score.indel
+            score[i][j] = max(0,score_left, score_up, score_diagonal)
+
+            # 0 means end of the path
+            if score[i][j] == 0:
+                pointer[i][j] = 0
+
+            # 1 means trace up
+            elif score[i][j] == score_left:
+                pointer[i][j] = 1
+
+            #2 means trace left
+            elif score[i][j] == score_up:
+                pointer[i][j] = 2
+
+            # 3 means trace diagonal
+            elif score[i][j] == score_diagonal:
+                pointer[i][j] = 3
+
+            if score[i][j] >= max_score:
+                max_i = i
+                max_j = j
+                max_score = score[i][j];
+
+    # initial sequences
+    align1, align2 = '', ''
+
+    # indices of path starting point
+    i, j = max_i ,max_j
+
+    #traceback, follow pointers
+    while pointer[i][j] != 0:
+        if pointer[i][j] == 3:
+            align1 += seq1[i-1]
+            align2 += seq2[j-1]
+            i -= 1
+            j -= 1
+        elif pointer[i][j] == 2:
+            align1 += '-'
+            align2 += seq2[j-1]
+            j -= 1
+        elif pointer[i][j] == 1:
+            align1 += seq1[i-1]
+            align2 += '-'
+            i -= 1
+
+    return align1[::-1], align2[::-1]
+
