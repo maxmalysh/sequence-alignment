@@ -4,8 +4,8 @@ from enum import Enum
 class Score:
     match    = +1
     mismatch = -1
-    indel    = -1   # gap penalty
-    extend   =  0   # gap extension penalty
+    indel    = -3   # gap penalty
+    extend   = -1   # gap extension penalty
 
 
 class Type(Enum):
@@ -18,27 +18,46 @@ def similarity(first, second):
     return Score.match if first == second else Score.mismatch
 
 
-def needleman(seq1, seq2, affine=False):
-    if affine:
-        return needleman_affine(seq1, seq2)
-
+def needleman(seq1, seq2, affine=False) -> (str, str):
     m, n = len(seq1), len(seq2)
 
     # Fill score matrix with initial values
     score = numpy.zeros(dtype=numpy.int, shape=(m+1, n+1))
+    indel_grid = numpy.zeros(dtype=Type, shape=(m+1, n+1))
 
-    for i in range(0, m + 1):
-        score[i][0] = i * Score.indel
-    for j in range(0, n + 1):
-        score[0][j] = j * Score.indel
+    if not affine:
+        for i in range(0, m + 1):
+            score[i][0] = i * Score.indel
+        for j in range(0, n + 1):
+            score[0][j] = j * Score.indel
 
-    def score_for(type, i, j):
-        score_table = {
-            Type.Match  : score[i-1][j-1] + similarity(seq1[i-1], seq2[j-1]),
-            Type.Delete : score[i-1][j]   + Score.indel,
-            Type.Insert : score[i][j-1]   + Score.indel,
-        }
-        return score_table[type]
+        def score_for(type, i, j):
+            score_table = {
+                Type.Match  : score[i-1][j-1] + similarity(seq1[i-1], seq2[j-1]),
+                Type.Delete : score[i-1][j]   + Score.indel,
+                Type.Insert : score[i][j-1]   + Score.indel,
+            }
+            return score_table[type]
+
+    else:
+        score[0][0] = 0
+        indel_grid[0][0] = 0
+
+        for i in range(1, m + 1):
+            score[i][0] = (i-1) * Score.extend + Score.indel
+            indel_grid[i][0] = Type.Delete
+
+        for j in range(1, n + 1):
+            score[0][j] = (j-1) * Score.extend + Score.indel
+            indel_grid[0][j] = Type.Insert
+
+        def score_for(type, i, j):
+            score_table = {
+                Type.Match  : score[i-1][j-1] + similarity(seq1[i-1], seq2[j-1]),
+                Type.Delete : score[i-1][j]   + Score.extend if indel_grid[i-1][j] == Type.Delete else Score.indel,
+                Type.Insert : score[i][j-1]   + Score.extend if indel_grid[i][j-1] == Type.Insert else Score.indel,
+            }
+            return score_table[type]
 
     # Calculate scores
     for i in range(1, m + 1):
@@ -48,7 +67,15 @@ def needleman(seq1, seq2, affine=False):
             insert = score_for(Type.Insert, i, j)
             score[i][j] = max(match, delete, insert)
 
-    print(score)
+            if affine:
+                actions = {
+                    match  : Type.Match,
+                    delete : Type.Delete,
+                    insert : Type.Insert,
+                }
+                indel_grid[i][j] = actions[score[i][j]]
+
+    # print(score)
 
     # Traceback and compute the alignment
     # starting from the bottom right cell
@@ -96,11 +123,7 @@ def needleman(seq1, seq2, affine=False):
 
     return align1[::-1], align2[::-1]
 
-def needleman_affine(seq1, seq2):
-    raise NotImplementedError
-
-
-def smith(seq1, seq2, affine=False):
+def smith(seq1, seq2, affine=False) -> (str, str):
     m, n = len(seq1), len(seq2)
 
     # Generate DP table and traceback path pointer matrix
