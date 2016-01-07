@@ -11,6 +11,8 @@ argParser.add_argument('--needleman',  dest='needleman',  action='store_true',
                         help='Use Needleman–Wunsch algorithm')
 argParser.add_argument('--smith',  dest='smith',  action='store_true',
                         help='Use Smith-Waterman algorithm')
+argParser.add_argument('--affine', dest='affine', action='store_true',
+                        help='Use affine scoring')
 
 argParser.set_defaults(needleman=False, smith=False)
 args = argParser.parse_args()
@@ -43,8 +45,8 @@ with open(args.filename, 'r') as f:
 #
 # Perform the alignment
 #
-align = needleman if args.needleman else (smith if args.smith else None)
-aligned = align(seq[0], seq[1], False)
+align = needleman if args.needleman else smith
+aligned = align(seq[0], seq[1], args.affine)
 
 #
 # Print output

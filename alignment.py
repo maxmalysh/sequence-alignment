@@ -19,6 +19,9 @@ def similarity(first, second):
 
 
 def needleman(seq1, seq2, affine=False):
+    if affine:
+        return needleman_affine(seq1, seq2)
+
     m, n = len(seq1), len(seq2)
 
     # Fill score matrix with initial values
@@ -30,12 +33,12 @@ def needleman(seq1, seq2, affine=False):
         score[0][j] = j * Score.indel
 
     def score_for(type, i, j):
-        if type is Type.Match:
-            return score[i-1][j-1] + similarity(seq1[i-1], seq2[j-1])
-        elif type is Type.Delete:
-            return score[i-1][j] + Score.indel
-        elif type is Type.Insert:
-            return score[i][j-1] + Score.indel
+        score_table = {
+            Type.Match  : score[i-1][j-1] + similarity(seq1[i-1], seq2[j-1]),
+            Type.Delete : score[i-1][j]   + Score.indel,
+            Type.Insert : score[i][j-1]   + Score.indel,
+        }
+        return score_table[type]
 
     # Calculate scores
     for i in range(1, m + 1):
@@ -92,6 +95,9 @@ def needleman(seq1, seq2, affine=False):
         j -= 1
 
     return align1[::-1], align2[::-1]
+
+def needleman_affine(seq1, seq2):
+    raise NotImplementedError
 
 
 def smith(seq1, seq2, affine=False):
