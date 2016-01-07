@@ -44,7 +44,7 @@ with open(args.filename, 'r') as f:
 # Perform the alignment
 #
 align = needleman if args.needleman else (smith if args.smith else None)
-aligned = align(seq[0], seq[1])
+aligned = align(seq[0], seq[1], False)
 
 #
 # Print output
