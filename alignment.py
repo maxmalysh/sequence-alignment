@@ -42,22 +42,13 @@ class AffineAligner(Aligner):
             return score_table[type]
         return score_for
 
-    def chosen_action(self, match, delete, insert, chosen):
-        return {
-            match  : Type.Match,
-            delete : Type.Delete,
-            insert : Type.Insert,
-            0      : 0
-        }[chosen]
-
-
 class NeedlemanAligner(AffineAligner):
     def align(self, seq1, seq2) -> (str, str):
         m, n = len(seq1), len(seq2)
 
         # Fill score matrix with initial values
         score = numpy.zeros(dtype=numpy.int, shape=(m+1, n+1))
-        indel_grid = numpy.zeros(dtype=Type, shape=(m+1, n+1))
+        indels = numpy.zeros(dtype=Type, shape=(m+1, n+1))
 
         if not self.affine:
             for i in range(0, m + 1):
@@ -66,17 +57,17 @@ class NeedlemanAligner(AffineAligner):
                 score[0][j] = j * Score.indel
         else:
             score[0][0] = 0
-            indel_grid[0][0] = 0
+            indels[0][0] = 0
 
             for i in range(1, m + 1):
                 score[i][0] = (i-1) * Score.extend + Score.indel
-                indel_grid[i][0] = Type.Delete
+                indels[i][0] = Type.Delete
 
             for j in range(1, n + 1):
                 score[0][j] = (j-1) * Score.extend + Score.indel
-                indel_grid[0][j] = Type.Insert
+                indels[0][j] = Type.Insert
 
-        score_for = self.score_generator_for(seq1, seq2, score, indel_grid)
+        score_for = self.score_generator_for(seq1, seq2, score, indels)
 
         # Calculate scores
         for i in range(1, m + 1):
@@ -92,7 +83,7 @@ class NeedlemanAligner(AffineAligner):
                         delete : Type.Delete,
                         insert : Type.Insert,
                     }
-                    indel_grid[i][j] = actions[score[i][j]]
+                    indels[i][j] = actions[score[i][j]]
 
         # print(score)
 
@@ -148,9 +139,9 @@ class SmithAligner(AffineAligner):
 
         # Generate DP table and traceback path pointer matrix
         score = numpy.zeros(dtype=numpy.int, shape=(m+1, n+1))
-        indel_grid = numpy.zeros(dtype=Type, shape=(m+1, n+1))
+        indels = numpy.zeros(dtype=Type, shape=(m+1, n+1))
 
-        score_for = self.score_generator_for(seq1, seq2, score, indel_grid)
+        score_for = self.score_generator_for(seq1, seq2, score, indels)
 
         # initial maximum score
         max_score = 0
@@ -165,7 +156,7 @@ class SmithAligner(AffineAligner):
                 # 0 means end of the path
                 score[i][j] = max(0, match, delete, insert)
                 if self.affine:
-                    indel_grid[i][j] = {
+                    indels[i][j] = {
                         match  : Type.Match,
                         delete : Type.Delete,
                         insert : Type.Insert,
@@ -187,30 +178,24 @@ class SmithAligner(AffineAligner):
         # Traceback
         while score[i][j] != 0:
             if score[i][j] == score_for(Type.Match, i, j):
-                align1 += seq1[i-1]
-                align2 += seq2[j-1]
+                align1 = seq1[i-1] + align1
+                align2 = seq2[j-1] + align2
                 i -= 1
                 j -= 1
             elif score[i][j] == score_for(Type.Insert):
-                align1 += '-'
-                align2 += seq2[j-1]
+                align1 = '-' + align1
+                align2 = seq2[j-1] + align2
                 j -= 1
             elif score[i][j] == score_for(Type.Delete):
-                align1 += seq1[i-1]
-                align2 += '-'
+                align1 = seq1[i-1] + align1
+                align2 = '-' + align2
                 i -= 1
 
-        while i > 0:
-            align1 += seq1[i-1]
-            align2 += '-'
-            i -= 1
+        align1 = seq1[:i] + ' ' + align1 + ' '+ seq1[max_i:]
+        align2 = seq2[:j] + ' ' + align2 + ' '+ seq2[max_j:]
 
-        while j > 0:
-            align1 += '-'
-            align2 += seq2[j-1]
-            j -= 1
+        # Add preceding & succeeding whitespaces
+        align1 = (' '*(j-i) if i < j else '') + align1 + (' ' *(max_j-i) if i < j else '')
+        align2 = (' '*(i-j) if i > j else '') + align2 + (' ' *(max_j-i) if j < i else '')
 
-        # print("Score is ", score[max_i][max_j])
-
-        return align1[::-1], align2[::-1]
-
+        return align1, align2
