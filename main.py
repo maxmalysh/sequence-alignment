@@ -1,5 +1,5 @@
 import argparse
-from alignment import needleman, smith
+from alignment import NeedlemanAligner, SmithAligner
 
 #   
 # Parse input arguments
@@ -45,8 +45,12 @@ with open(args.filename, 'r') as f:
 #
 # Perform the alignment
 #
-align = needleman if args.needleman else smith
-aligned = align(seq[0], seq[1], args.affine)
+if args.needleman:
+    aligner = NeedlemanAligner(args.affine)
+else:
+    aligner = SmithAligner(args.affine)
+
+aligned = aligner.align(seq[0], seq[1])
 
 #
 # Print output
